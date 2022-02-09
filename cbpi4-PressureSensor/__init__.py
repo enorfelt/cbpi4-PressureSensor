@@ -66,7 +66,7 @@ class PressureSensor(CBPiSensor):
         self.ADSchannel = int(self.props.get("ADSchannel", 0))
         pressureHigh = self.convert_pressure(int(self.props.get("pressureHigh", 10)))
         pressureLow = self.convert_pressure(int(self.props.get("pressureLow", 0)))
-        #logging.info('Pressure values - low: %s , high: %s' % ((pressureLow), (pressureHigh)))
+        logging.info('Pressure values - low: %s , high: %s' % ((pressureLow), (pressureHigh)))
         # We need the coefficients to calculate pressure for the next step
         # Using Y=MX+B where X is the volt output difference, M is kPa/volts or pressure difference / volt difference
         #  B is harder to explain, it's the offset of the voltage & pressure, ex:
@@ -75,13 +75,13 @@ class PressureSensor(CBPiSensor):
         #    We calculate a value of 1.5kPa/V, therefore 1V = -1.5
         #    if the output of the sensor was 0-5V there would be no offset
         calcX = int(self.props.get("voltHigh", 5)) - int(self.props.get("voltLow", 0))
-        #logging.info('calcX value: %s' % (calcX))
+        logging.info('calcX value: %s' % (calcX))
         calcM = (pressureHigh - pressureLow) / calcX
-        #logging.info('calcM value: %s' % (calcM))
+        logging.info('calcM value: %s' % (calcM))
         calcB = 0
         if int(self.props.get("voltLow", 0)) > 0:
             calcB = (-1 * int(self.props.get("voltLow", 0))) * calcM
-        #logging.info('calcB value: %s' % (calcB))
+        logging.info('calcB value: %s' % (calcB))
         
         while self.running is True:
             
@@ -102,7 +102,7 @@ class PressureSensor(CBPiSensor):
                 chan = AnalogIn(ads, ADS.P3)
                 
             pressureValue = (calcM * chan.voltage) + calcB    # "%.6f" % ((calcM * voltage) + calcB)
-            #logging.info("pressureValue: %s" % (pressureValue))    #debug or calibration
+            logging.info("pressureValue: %s" % (pressureValue))    #debug or calibration
             
             # Time to calculate the other data values
             
@@ -133,6 +133,7 @@ class PressureSensor(CBPiSensor):
             else:
                 self.value = chan.voltage
             
+            logging.info("push_update: %s" % (self.value))
             self.push_update(self.value)
             await asyncio.sleep(1)
     
