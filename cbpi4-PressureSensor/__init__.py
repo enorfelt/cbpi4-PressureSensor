@@ -64,8 +64,8 @@ class PressureSensor(CBPiSensor):
         GRAVITY = float(self.GRAVITY)
         
         self.ADSchannel = int(self.props.get("ADSchannel", 0))
-        pressureHigh = self.convert_pressure(int(self.props.get("pressureHigh", 10)))
-        pressureLow = self.convert_pressure(int(self.props.get("pressureLow", 0)))
+        pressureHigh = int(self.props.get("pressureHigh", 10)) #self.convert_pressure(int(self.props.get("pressureHigh", 10)))
+        pressureLow = int(self.props.get("pressureLow", 0)) #self.convert_pressure(int(self.props.get("pressureLow", 0)))
         logging.info('Pressure values - low: %s , high: %s' % ((pressureLow), (pressureHigh)))
         # We need the coefficients to calculate pressure for the next step
         # Using Y=MX+B where X is the volt output difference, M is kPa/volts or pressure difference / volt difference
@@ -109,7 +109,7 @@ class PressureSensor(CBPiSensor):
             # Liquid Level is calculated by H = P / (SG * G). Assume the SG of water is 1.000
             #   this is true for water at 4C
             #   note: P needs to be in BAR and H value will need to be multiplied by 100 to get cm
-            liquidLevel = ((self.convert_bar(pressureValue) / GRAVITY) * 100) #/ self.inch_mm
+            liquidLevel = (pressureValue / GRAVITY) * 100) #/ self.inch_mm
             if liquidLevel > 1.2: #0.49:
                 liquidLevel += float(self.props.get("sensorHeight", 0))
             
