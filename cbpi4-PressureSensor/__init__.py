@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
     Property.Number("voltHigh", configurable=True, default_value=5, description="Pressure Sensor maximum voltage, usually 5"),
     Property.Number("pressureLow", configurable=True, default_value=0, description="Pressure value at minimum voltage, value in kPa"),
     Property.Number("pressureHigh", configurable=True, default_value=10, description="Pressure value at maximum voltage, value in kPa"),
-    Property.Number("sensorHeight (mm)", configurable=True, default_value=0, description="Location of Sensor from the bottom of the kettle in mm"),
-    Property.Number("kettleDiameter (mm)", configurable=True, default_value=0, description="Diameter of kettle in mm")
+    Property.Number("sensorHeight (cm)", configurable=True, default_value=0, description="Location of Sensor from the bottom of the kettle in mm"),
+    Property.Number("kettleDiameter (cm)", configurable=True, default_value=0, description="Diameter of kettle in mm")
 ])
 
 
@@ -108,16 +108,16 @@ class PressureSensor(CBPiSensor):
             
             # Liquid Level is calculated by H = P / (SG * G). Assume the SG of water is 1.000
             #   this is true for water at 4C
-            #   note: P needs to be in BAR and H value will need to be multiplied by 100,000 to get mm
-            liquidLevel = ((self.convert_bar(pressureValue) / GRAVITY) * 100000) #/ self.inch_mm
-            if liquidLevel > 12: #0.49:
+            #   note: P needs to be in BAR and H value will need to be multiplied by 100 to get cm
+            liquidLevel = ((self.convert_bar(pressureValue) / GRAVITY) * 100) #/ self.inch_mm
+            if liquidLevel > 1.2: #0.49:
                 liquidLevel += float(self.props.get("sensorHeight", 0))
             
             # Volume is calculated by V = PI (r squared) * height
             kettleDiameter = float(self.props.get("kettleDiameter", 0))
             kettleRadius = kettleDiameter / 2
             radiusSquared = kettleRadius * kettleRadius
-            volumeCI = self.PI * radiusSquared * liquidLevel
+            volumeCI = self.PI * radiusSquared * liquidLevel / 1000
             volume = volumeCI #/ self.gallons_cubicinch
 
             if self.props.get("sensorType", "Liquid Level") == "Voltage":
