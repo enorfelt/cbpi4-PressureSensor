@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 @parameters([
     Property.Select(label="ADSchannel", options=[0,1,2,3], description="Enter channel-number of ADS1x15"),
-    Property.Select("sensorType", options=["Voltage","Digits","Pressure","Liquid Level","Volume"], description="Select which type of data to register for this sensor"),
+    Property.Select("sensorType", options=["Voltage","Digits", "Pressure", "Pressure Compensated", "Liquid Level", "Liquid Level Compensated","Volume", "Volume Compensated"], description="Select which type of data to register for this sensor"),
     Property.Select("pressureType", options=["kPa","PSI"]),
     Property.Number("voltLow", configurable=True, default_value=0, description="Pressure Sensor minimum voltage, usually 0"),
     Property.Number("voltHigh", configurable=True, default_value=5, description="Pressure Sensor maximum voltage, usually 5"),
@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
     Property.Number("pressureHigh", configurable=True, default_value=10, description="Pressure value at maximum voltage, value in kPa"),
     Property.Number("sensorHeight (cm)", configurable=True, default_value=0, description="Location of Sensor from the bottom of the kettle in cm"),
     Property.Number("kettleDiameter (cm)", configurable=True, default_value=0, description="Diameter of kettle in cm")
+    Property.Sensor("tempSensor",description="Select temperature sensor to be able to do volume compensation"),
 ])
 
 
@@ -82,6 +83,12 @@ class PressureSensor(CBPiSensor):
         if int(self.props.get("voltLow", 0)) > 0:
             calcB = (-1 * int(self.props.get("voltLow", 0))) * calcM
         logging.info('calcB value: %s' % (calcB))
+
+        zero_drift = 0.5  # %FS per degree Celsius
+        sensitivity_drift = 0.5  # %FS per degree Celsius
+        reference_temperature = 20  # degrees Celsius
+
+        tempSensor = self.props.get("tempSensor", None)
         
         while self.running is True:
             
@@ -101,35 +108,56 @@ class PressureSensor(CBPiSensor):
             elif self.ADSchannel == 3:
                 chan = AnalogIn(ads, ADS.P3)
                 
-            pressureValue = (calcM * chan.voltage) + calcB    # "%.6f" % ((calcM * voltage) + calcB)
-            logging.info("pressureValue: %s" % (pressureValue))    #debug or calibration
+            temperature = reference_temperature # temp from sensor
+            if tempSensor is not None:
+                sensorValue = self.cbpi.sensor.get_sensor_value(tempSensor).get("value")
+                temperature = round(float(sensorValue), 2)
+
+            pressureValueRaw = (calcM * chan.voltage) + calcB    # "%.6f" % ((calcM * voltage) + calcB)
+
+            temperature_coefficient = zero_drift + (sensitivity_drift / pressureValueRaw)
+            pressureValueCompensated = pressureValueRaw / (1 + temperature_coefficient * (temperature - reference_temperature))
+
+            logging.info("pressureValueRaw: %s" % pressureValueRaw)    #debug or calibration
+            logging.info("pressureValueCompensated: %s" % pressureValueCompensated)    #debug or calibration
             
             # Time to calculate the other data values
             
             # Liquid Level is calculated by H = P / (SG * G). Assume the SG of water is 1.000
             #   this is true for water at 4C
             #   note: P needs to be in BAR and H value will need to be multiplied by 100 to get cm
-            liquidLevel = (pressureValue / GRAVITY) * 100 #/ self.inch_mm
+            liquidLevel = (pressureValueRaw / GRAVITY) * 100 #/ self.inch_mm
             if liquidLevel > 1.2: #0.49:
                 liquidLevel += float(self.props.get("sensorHeight", 0))
+            liquidLevelCompensated = (pressureValueCompensated / GRAVITY) * 100 #/ self.inch_mm
+            if liquidLevelCompensated > 1.2: #0.49:
+                liquidLevelCompensated += float(self.props.get("sensorHeight", 0))
             
             # Volume is calculated by V = PI (r squared) * height
             kettleDiameter = float(self.props.get("kettleDiameter", 0))
             kettleRadius = kettleDiameter / 2
             radiusSquared = kettleRadius * kettleRadius
             volumeCI = self.PI * radiusSquared * liquidLevel / 1000
-            volume = volumeCI #/ self.gallons_cubicinch
+            volume = volumeCI
+            volumeCICompensated = self.PI * radiusSquared * liquidLevelCompensated / 1000
+            volumeCompensated = volumeCICompensated
 
             if self.props.get("sensorType", "Liquid Level") == "Voltage":
                 self.value = chan.voltage
             elif self.props.get("sensorType", "Liquid Level") == "Digits":
                 self.value = chan.value
             elif self.props.get("sensorType", "Liquid Level") == "Pressure":
-                self.value = pressureValue
+                self.value = pressureValueRaw
+            elif self.props.get("sensorType", "Liquid Level") == "Pressure Compensated":
+                self.value = pressureValueCompensated
             elif self.props.get("sensorType", "Liquid Level") == "Liquid Level":
                 self.value = liquidLevel
+            elif self.props.get("sensorType", "Liquid Level") == "Liquid Level Compensated":
+                self.value = liquidLevelCompensated
             elif self.props.get("sensorType", "Liquid Level") == "Volume":
                 self.value = volume
+            elif self.props.get("sensorType", "Liquid Level") == "Volume Compensated":
+                self.value = volumeCompensated
             else:
                 self.value = chan.voltage
             
