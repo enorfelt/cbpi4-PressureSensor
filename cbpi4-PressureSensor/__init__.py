@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
     Property.Number("pressureLow", configurable=True, default_value=0, description="Pressure value at minimum voltage, value in kPa"),
     Property.Number("pressureHigh", configurable=True, default_value=10, description="Pressure value at maximum voltage, value in kPa"),
     Property.Number("sensorHeight", configurable=True, default_value=0, description="Location of Sensor from the bottom of the kettle in cm"),
-    Property.Number("kettleDiameter", configurable=True, default_value=0, description="Diameter of kettle in cm")
+    Property.Number("kettleDiameter", configurable=True, default_value=0, description="Diameter of kettle in cm"),
     Property.Sensor("tempSensor",description="Select temperature sensor to be able to do volume compensation"),
 ])
 
